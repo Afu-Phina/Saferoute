@@ -1,0 +1,6 @@
+### key.properties sample
+# Copy this file to android/key.properties and fill the values. Do NOT commit real keys to the repo.
+storePassword=your-keystore-password
+keyPassword=your-key-password
+keyAlias=your-key-alias
+storeFile=path/to/your/keystore.jks

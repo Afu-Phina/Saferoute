@@ -69,3 +69,87 @@ Extras I can add
 - A second workflow that deploys to Netlify or Firebase automatically.
 
 If you'd like one of those, tell me which and I'll add it.
+
+## APK distribution (build and upload)
+
+You can build a release APK locally and upload it to your website so users can download and install it.
+
+I added a helper PowerShell script at `scripts/build_and_upload.ps1` that:
+- Builds a release APK: `flutter build apk --release`
+- Optionally uploads the APK via FTP or SCP if you provide environment variables.
+
+Usage examples (PowerShell):
+
+1) Build only and print APK path:
+
+```powershell
+powershell ./scripts/build_and_upload.ps1
+```
+
+2) Build and upload via SCP (requires scp on PATH):
+
+```powershell
+$env:SCP_TARGET = 'user@host:/path/to/public_html/saferoute.apk'
+powershell ./scripts/build_and_upload.ps1 -method scp
+```
+
+3) Build and upload via FTP (set credentials in env vars):
+
+```powershell
+$env:FTP_URL = 'ftp://yourserver.com/public_html'
+$env:FTP_USER = 'ftpuser'
+$env:FTP_PASS = 'ftppassword'
+$env:REMOTE_PATH = 'saferoute.apk'  # optional
+powershell ./scripts/build_and_upload.ps1 -method ftp
+```
+
+Important notes:
+- Android release APK should be signed with your release key before publishing publicly. The current Gradle config uses the debug signing config for `release` (see `android/app/build.gradle.kts`) and you should add a proper release signing config for production installs.
+- Users may need to enable "Install unknown apps" on their Android devices to install APKs distributed outside Google Play.
+- Consider distributing through Google Play for easier updates and trust; Play Console has a one-time fee.
+
+Signing a release APK (short guide)
+
+1) Create a keystore (one-time):
+
+```powershell
+keytool -genkey -v -keystore my-release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias my-key-alias
+```
+
+2) Create `android/key.properties` (do NOT commit it) using `android/key.properties.sample` as a template. Put the keystore file somewhere safe (for example, `android/my-release-key.jks`) and reference its relative path in `storeFile`.
+
+3) Update `android/app/build.gradle.kts` signing config to read `key.properties`. Example (Kotlin DSL) snippet to add inside `android` block:
+
+```kotlin
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+	keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
+android {
+	// ... existing config ...
+	signingConfigs {
+		create("release") {
+			storeFile = file(keystoreProperties.getProperty("storeFile"))
+			storePassword = keystoreProperties.getProperty("storePassword")
+			keyAlias = keystoreProperties.getProperty("keyAlias")
+			keyPassword = keystoreProperties.getProperty("keyPassword")
+		}
+	}
+
+	buildTypes {
+		release {
+			signingConfig = signingConfigs.getByName("release")
+		}
+	}
+}
+```
+
+After that you can build a signed release APK with:
+
+```powershell
+flutter build apk --release
+```
+
+
